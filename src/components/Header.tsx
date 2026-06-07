@@ -1,5 +1,5 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
-import { AppContext } from '../App';
+import { AppContext } from '../context/AppContext';
 import { DigitalAllyLogoIcon, GlobeIcon, SparklesIcon } from './icons';
 import { LANGUAGES, EXAMPLE_PROMPTS } from '../constants';
 
@@ -56,11 +56,11 @@ export const Header: React.FC = () => {
             <span>{t('examples')}</span>
           </button>
           {isExamplesOpen && (
-            <div 
-              className="absolute left-0 mt-2 w-56 origin-top-left bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none animate-fade-in-up-short" 
-              style={{animationDuration: '0.3s'}}
-              role="menu" 
-              aria-orientation="vertical" 
+            <div
+              className="absolute left-0 mt-2 w-56 origin-top-left bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none animate-fade-in-up-short"
+              style={{ animationDuration: '0.3s' }}
+              role="menu"
+              aria-orientation="vertical"
               aria-labelledby="options-menu"
             >
               <div className="py-1">
@@ -68,11 +68,10 @@ export const Header: React.FC = () => {
                   <button
                     key={example.label}
                     onClick={() => selectExample(example.prompt)}
-                    className={`block w-full text-left px-4 py-2 text-sm ${
-                      index === 0
+                    className={`block w-full text-left px-4 py-2 text-sm ${index === 0
                         ? 'text-gray-500 cursor-default'
                         : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                    }`}
+                      }`}
                     role="menuitem"
                     disabled={!example.prompt}
                   >
@@ -84,7 +83,7 @@ export const Header: React.FC = () => {
           )}
         </div>
       </div>
-      
+
       <div className="flex items-center gap-6 text-gray-600 font-medium">
         <button onClick={() => setPageState('form')} className={getLinkClasses('form')}>
           {t('generator')}
@@ -93,19 +92,19 @@ export const Header: React.FC = () => {
           {t('dashboard')}
         </button>
         <div className="flex items-center gap-2">
-            <GlobeIcon className="w-5 h-5 text-gray-500" />
-            <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="bg-transparent border-none text-gray-600 focus:ring-0 focus:outline-none font-medium"
-                aria-label="Select language"
-            >
-                {LANGUAGES.map(lang => (
-                    <option key={lang.value} value={lang.value}>
-                        {lang.label}
-                    </option>
-                ))}
-            </select>
+          <GlobeIcon className="w-5 h-5 text-gray-500" />
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="bg-transparent border-none text-gray-600 focus:ring-0 focus:outline-none font-medium"
+            aria-label="Select language"
+          >
+            {LANGUAGES.map(lang => (
+              <option key={lang.value} value={lang.value}>
+                {lang.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
     </header>
