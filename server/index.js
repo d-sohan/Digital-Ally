@@ -61,19 +61,36 @@ async function callGemini(prompt) {
 
 app.post('/api/generate/website', requireAuth, async (req, res) => {
   try {
-    const { prompt } = req.body;
+    const { prompt, outputFormat = 'html' } = req.body; // Default to 'html'
     if (!prompt || typeof prompt !== 'string' || prompt.length > 10000) {
       return res.status(400).json({ error: 'Invalid prompt' });
     }
 
-    const text = await callGemini(prompt);
-    return res.json({ html: text });
+    // Validate outputFormat
+    const allowedFormats = ['html', 'react']; // Extend this array as more formats are supported
+    if (!allowedFormats.includes(outputFormat)) {
+      return res.status(400).json({ error: `Unsupported output format: '${outputFormat}'. Allowed formats are: ${allowedFormats.join(', ')}` });
+    }
+
+    let geminiPrompt = prompt;
+    // Prepend system instructions to guide Gemini based on the desired output format
+    if (outputFormat === 'react') {
+      geminiPrompt = `Generate a React functional component based on the following description. Ensure the component is self-contained and uses standard React practices. Only return the JSX/TSX code, no extra explanations or markdown formatting outside the component itself:\n\n${prompt}`;
+    } else if (outputFormat === 'html') {
+      geminiPrompt = `Generate a complete HTML page based on the following description. Only return the HTML code, no extra explanations or markdown formatting outside the HTML itself:\n\n${prompt}`;
+    }
+    // For formats like 'zip' or 'cms', more complex server-side logic would be required here,
+    // potentially involving multiple calls to Gemini, file system operations, or specific CMS API integrations.
+
+    const generatedContent = await callGemini(geminiPrompt);
+
+    // Return the generated content, using the outputFormat as the key in the JSON response
+    return res.json({ [outputFormat]: generatedContent });
   } catch (err) {
     console.error('Error in /api/generate/website', err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
-
 app.post('/api/generate/newsletter', requireAuth, async (req, res) => {
   try {
     const { prompt } = req.body;
