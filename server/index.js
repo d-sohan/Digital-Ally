@@ -67,7 +67,7 @@ app.post('/api/generate/website', requireAuth, async (req, res) => {
     }
 
     // Validate outputFormat
-    const allowedFormats = ['html', 'react']; // Extend this array as more formats are supported
+    const allowedFormats = ['html', 'react', 'zip']; // Enabled 'zip' support
     if (!allowedFormats.includes(outputFormat)) {
       return res.status(400).json({ error: `Unsupported output format: '${outputFormat}'. Allowed formats are: ${allowedFormats.join(', ')}` });
     }
@@ -78,14 +78,31 @@ app.post('/api/generate/website', requireAuth, async (req, res) => {
       geminiPrompt = `Generate a React functional component based on the following description. Ensure the component is self-contained and uses standard React practices. Only return the JSX/TSX code, no extra explanations or markdown formatting outside the component itself:\n\n${prompt}`;
     } else if (outputFormat === 'html') {
       geminiPrompt = `Generate a complete HTML page based on the following description. Only return the HTML code, no extra explanations or markdown formatting outside the HTML itself:\n\n${prompt}`;
+    } else if (outputFormat === 'zip') {
+      geminiPrompt = `Generate a complete website (HTML, CSS, and JS) based on: ${prompt}. 
+      Return the result ONLY as a valid JSON object where keys are filenames and values are the file contents.
+      Example format: {"index.html": "...", "styles.css": "...", "script.js": "..."}
+      Do not include any explanations or markdown formatting.`;
     }
-    // For formats like 'zip' or 'cms', more complex server-side logic would be required here,
-    // potentially involving multiple calls to Gemini, file system operations, or specific CMS API integrations.
 
-    const generatedContent = await callGemini(geminiPrompt);
+    let generatedContent = await callGemini(geminiPrompt);
+
+    // Handle potential JSON formatting in the response for 'zip' format
+    if (outputFormat === 'zip') {
+      try {
+        // Strip markdown code blocks if Gemini includes them
+        const cleanedContent = generatedContent.replace(/```json|```/g, '').trim();
+        const files = JSON.parse(cleanedContent);
+        return res.json({ zip: files });
+      } catch (parseErr) {
+        console.error('Failed to parse ZIP JSON from Gemini', parseErr);
+        // Fallback: return as raw text if parsing fails, so the client can try to handle it
+        return res.json({ zip: generatedContent, warning: 'Parsed as raw text' });
+      }
+    }
 
     // Return the generated content, using the outputFormat as the key in the JSON response
-    return res.json({ [outputFormat]: generatedContent });
+    return res.json({ [outputFormat]: generatedContent.trim() });
   } catch (err) {
     console.error('Error in /api/generate/website', err);
     return res.status(500).json({ error: 'Server error' });
