@@ -58,6 +58,23 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// Stricter rate limiting for /api/generate/* routes
+const generateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    const retryAfter = req.rateLimit.resetTime
+      ? Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000)
+      : 15 * 60;
+    res.status(429).json({
+      error: 'Rate limit exceeded',
+      retryAfter: retryAfter,
+    });
+  },
+});
+
 // Redis quota tracking middleware for daily and monthly limits per IP
 const DAILY_QUOTA = parseInt(process.env.DAILY_QUOTA || '100', 10);
 const MONTHLY_QUOTA = parseInt(process.env.MONTHLY_QUOTA || '1000', 10);
@@ -164,7 +181,7 @@ async function callGemini(prompt) {
   return response.text || '';
 }
 
-app.post('/api/generate/website', requireAuth, async (req, res) => {
+app.post('/api/generate/website', generateLimiter, requireAuth, async (req, res) => {
   try {
     const { prompt, outputFormat = 'html' } = req.body; // Default to 'html'
     if (!prompt || typeof prompt !== 'string' || prompt.length > 10000) {
@@ -213,7 +230,7 @@ app.post('/api/generate/website', requireAuth, async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 });
-app.post('/api/generate/newsletter', requireAuth, async (req, res) => {
+app.post('/api/generate/newsletter', generateLimiter, requireAuth, async (req, res) => {
   try {
     const { prompt } = req.body;
     if (!prompt || typeof prompt !== 'string' || prompt.length > 8000) {
@@ -228,7 +245,7 @@ app.post('/api/generate/newsletter', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/generate/analysis', requireAuth, async (req, res) => {
+app.post('/api/generate/analysis', generateLimiter, requireAuth, async (req, res) => {
   try {
     const { prompt } = req.body;
     if (!prompt || typeof prompt !== 'string' || prompt.length > 15000) {
