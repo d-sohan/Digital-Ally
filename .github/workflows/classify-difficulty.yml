@@ -19,21 +19,30 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            // Difficulty labels in priority order
-            const difficultyLabels = ['newbie', 'adventure', 'veteran', 'question'];
+            // Difficulty labels with their configurations
+            const difficultyLabels = {
+              newbie: { color: '7057FF', description: 'Good for newcomers and beginners' },
+              adventure: { color: 'FF8C00', description: 'Medium complexity tasks' },
+              veteran: { color: 'B60205', description: 'Requires advanced knowledge and experience' },
+              question: { color: 'D876E3', description: 'Questions, help requests, and discussions' }
+            };
             
             // Statistics
+            let totalItems = 0;
             let totalIssues = 0;
+            let pullRequestsIgnored = 0;
             let issuesClassified = 0;
             let issuesSkipped = 0;
-            let issuesSkippedMissingLabel = 0;
+            let labelsCreated = 0;
+            let processingErrors = 0;
             const labelCounts = {
               newbie: 0,
               adventure: 0,
               veteran: 0,
               question: 0
             };
-            const missingLabelIssues = [];
+            const createdLabels = [];
+            const errorLog = [];
 
             // Check which difficulty labels exist in the repository
             const existingLabels = new Set();
@@ -48,14 +57,39 @@ jobs:
               console.error('Error fetching repository labels:', error.message);
             }
 
+            // Ensure all difficulty labels exist, create if missing
+            for (const [labelName, config] of Object.entries(difficultyLabels)) {
+              if (!existingLabels.has(labelName)) {
+                try {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: labelName,
+                    color: config.color,
+                    description: config.description
+                  });
+                  existingLabels.add(labelName);
+                  labelsCreated++;
+                  createdLabels.push(labelName);
+                  console.log(`Created repository label: ${labelName}`);
+                } catch (error) {
+                  console.error(`Error creating label ${labelName}:`, error.message);
+                  errorLog.push(`Failed to create label: ${labelName}`);
+                }
+              }
+            }
+
             // Fetch all open issues with pagination
             const issues = [];
             for await (const response of github.paginate.iterator(
                 github.rest.issues.listForRepo,
                 { owner, repo, state: 'open', per_page: 100 }
               )) {
+              totalItems += response.data.length;
               // Filter out pull requests
               const filteredIssues = response.data.filter(issue => !issue.pull_request);
+              const prCount = response.data.length - filteredIssues.length;
+              pullRequestsIgnored += prCount;
               issues.push(...filteredIssues);
             }
 
@@ -72,9 +106,11 @@ jobs:
               const existingIssueLabels = new Set(issue.labels.map(label => label.name));
 
               // Check if a difficulty label already exists
-              const hasDifficultyLabel = difficultyLabels.some(label => existingIssueLabels.has(label));
+              const existingDifficultyLabel = Object.keys(difficultyLabels).find(label => existingIssueLabels.has(label));
 
-              if (hasDifficultyLabel) {
+              if (existingDifficultyLabel) {
+                console.log(`Issue #${issueNumber}`);
+                console.log(`Already classified with: ${existingDifficultyLabel}`);
                 issuesSkipped++;
                 continue;
               }
@@ -146,17 +182,6 @@ jobs:
                 }
               }
 
-              // Verify the assigned label exists in the repository
-              if (!existingLabels.has(assignedLabel)) {
-                issuesSkippedMissingLabel++;
-                missingLabelIssues.push({
-                  number: issueNumber,
-                  title: issue.title,
-                  missingLabel: assignedLabel
-                });
-                continue;
-              }
-
               // Add the label to the issue
               try {
                 await github.rest.issues.addLabels({
@@ -167,9 +192,18 @@ jobs:
                 });
                 issuesClassified++;
                 labelCounts[assignedLabel]++;
+                
+                const existingLabelsList = Array.from(existingIssueLabels).join(', ') || 'none';
+                console.log(`Issue #${issueNumber}`);
+                console.log(`Classification: ${assignedLabel}`);
+                console.log(`Existing Labels: ${existingLabelsList}`);
+                console.log(`Applied: ${assignedLabel}`);
+                console.log('---');
               } catch (error) {
                 console.error(`Error adding label to issue #${issueNumber}:`, error.message);
-                issuesSkipped++;
+                processingErrors++;
+                errorLog.push(`Issue #${issueNumber}: ${error.message}`);
+                // Continue processing other issues
               }
             }
 
@@ -177,10 +211,13 @@ jobs:
             const summary = `
             ## Issue Difficulty Classification Summary
             
+            - **Total Items Scanned:** ${totalItems}
             - **Total Issues Scanned:** ${totalIssues}
-            - **Issues Classified:** ${issuesClassified}
-            - **Issues Skipped (already labeled):** ${issuesSkipped}
-            - **Issues Skipped (missing label):** ${issuesSkippedMissingLabel}
+            - **Pull Requests Ignored:** ${pullRequestsIgnored}
+            - **Issues Already Classified:** ${issuesSkipped}
+            - **Newly Classified Issues:** ${issuesClassified}
+            - **Labels Auto-Created:** ${labelsCreated}
+            - **Processing Errors:** ${processingErrors}
             
             ### Labels Applied
             
@@ -189,12 +226,20 @@ jobs:
             - **veteran:** ${labelCounts.veteran}
             - **question:** ${labelCounts.question}
             
-            ${missingLabelIssues.length > 0 ? `
-            ### Issues Skipped Due to Missing Labels
+            ${createdLabels.length > 0 ? `
+            ### Labels Auto-Created
             
-            The following difficulty labels do not exist in the repository:
+            The following labels were automatically created:
             
-            ${missingLabelIssues.map(item => `- Issue #${item.number}: "${item.title}" (missing: \`${item.missingLabel}\`)`).join('\n')}
+            ${createdLabels.map(label => `- \`${label}\``).join('\n')}
+            ` : ''}
+            
+            ${errorLog.length > 0 ? `
+            ### Processing Errors
+            
+            The following errors occurred during processing:
+            
+            ${errorLog.map(error => `- ${error}`).join('\n')}
             ` : ''}
             `;
 
@@ -203,10 +248,14 @@ jobs:
               .addRaw(summary)
               .addTable([
                 [{ data: 'Metric', header: true }, { data: 'Count', header: true }],
+                ['Total Items Scanned', totalItems.toString()],
                 ['Total Issues Scanned', totalIssues.toString()],
-                ['Issues Classified', issuesClassified.toString()],
-                ['Issues Skipped (already labeled)', issuesSkipped.toString()],
-                ['Issues Skipped (missing label)', issuesSkippedMissingLabel.toString()],
+                ['Pull Requests Ignored', pullRequestsIgnored.toString()],
+                ['Issues Already Classified', issuesSkipped.toString()],
+                ['Newly Classified Issues', issuesClassified.toString()],
+                ['Labels Auto-Created', labelsCreated.toString()],
+                ['Processing Errors', processingErrors.toString()],
+                ['', ''],
                 ['newbie labels applied', labelCounts.newbie.toString()],
                 ['adventure labels applied', labelCounts.adventure.toString()],
                 ['veteran labels applied', labelCounts.veteran.toString()],
@@ -215,7 +264,10 @@ jobs:
               .write();
 
             console.log('Classification complete');
+            console.log(`Total items: ${totalItems}`);
             console.log(`Total issues: ${totalIssues}`);
+            console.log(`Pull requests ignored: ${pullRequestsIgnored}`);
             console.log(`Classified: ${issuesClassified}`);
-            console.log(`Skipped: ${issuesSkipped}`);
-            console.log(`Skipped (missing label): ${issuesSkippedMissingLabel}`);
+            console.log(`Skipped (already labeled): ${issuesSkipped}`);
+            console.log(`Labels created: ${labelsCreated}`);
+            console.log(`Processing errors: ${processingErrors}`);
