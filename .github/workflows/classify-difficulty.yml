@@ -1,0 +1,221 @@
+name: Classify Issues by Difficulty
+
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  classify-difficulty:
+    name: Classify open issues by difficulty
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Classify issues by difficulty
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Difficulty labels in priority order
+            const difficultyLabels = ['newbie', 'adventure', 'veteran', 'question'];
+            
+            // Statistics
+            let totalIssues = 0;
+            let issuesClassified = 0;
+            let issuesSkipped = 0;
+            let issuesSkippedMissingLabel = 0;
+            const labelCounts = {
+              newbie: 0,
+              adventure: 0,
+              veteran: 0,
+              question: 0
+            };
+            const missingLabelIssues = [];
+
+            // Check which difficulty labels exist in the repository
+            const existingLabels = new Set();
+            try {
+              const { data: labels } = await github.rest.issues.listLabelsForRepo({
+                owner,
+                repo,
+                per_page: 100
+              });
+              labels.forEach(label => existingLabels.add(label.name));
+            } catch (error) {
+              console.error('Error fetching repository labels:', error.message);
+            }
+
+            // Fetch all open issues with pagination
+            const issues = [];
+            for await (const response of github.paginate.iterator(
+                github.rest.issues.listForRepo,
+                { owner, repo, state: 'open', per_page: 100 }
+              )) {
+              // Filter out pull requests
+              const filteredIssues = response.data.filter(issue => !issue.pull_request);
+              issues.push(...filteredIssues);
+            }
+
+            totalIssues = issues.length;
+
+            // Classify each issue
+            for (const issue of issues) {
+              const issueNumber = issue.number;
+              const title = issue.title.toLowerCase();
+              const body = (issue.body || '').toLowerCase();
+              const fullText = `${title}\n${body}`;
+              
+              // Get existing labels
+              const existingIssueLabels = new Set(issue.labels.map(label => label.name));
+
+              // Check if a difficulty label already exists
+              const hasDifficultyLabel = difficultyLabels.some(label => existingIssueLabels.has(label));
+
+              if (hasDifficultyLabel) {
+                issuesSkipped++;
+                continue;
+              }
+
+              // Determine difficulty based on classification rules
+              let assignedLabel = null;
+
+              // Check for 'question' first (non-implementation work)
+              const questionKeywords = [
+                'question', 'help', 'support', 'clarification', 'clarify',
+                'how do', 'how to', 'usage', 'discussion', 'ask', 'confused',
+                'understand', 'explain', 'guide', 'tutorial', 'example'
+              ];
+              
+              if (questionKeywords.some(keyword => fullText.includes(keyword))) {
+                assignedLabel = 'question';
+              } else {
+                // Check for 'veteran' (high complexity)
+                const veteranKeywords = [
+                  'security', 'authentication', 'authorization', 'performance',
+                  'optimization', 'infrastructure', 'ci/cd', 'cicd', 'architecture',
+                  'refactor', 'large refactoring', 'core framework', 'advanced',
+                  'debugging', 'complex', 'multi-module', 'scalability', 'monitoring',
+                  'deployment', 'docker', 'kubernetes', 'aws', 'cloud', 'migration',
+                  'database migration', 'schema', 'distributed', 'microservices'
+                ];
+
+                const veteranCategories = [
+                  'security', 'architecture', 'performance', 'monitoring', 'devops',
+                  'infrastructure', 'ci/cd', 'database'
+                ];
+
+                const isVeteran = veteranKeywords.some(keyword => fullText.includes(keyword)) ||
+                                 veteranCategories.some(category => title.includes(category));
+
+                if (isVeteran) {
+                  assignedLabel = 'veteran';
+                } else {
+                  // Check for 'newbie' (beginner-friendly)
+                  const newbieKeywords = [
+                    'documentation', 'readme', 'typo', 'spelling', 'grammar',
+                    'small ui', 'minor css', 'simple', 'good first issue',
+                    'beginner', 'starter', 'easy', 'first-timers', 'introductory',
+                    'translation', 'i18n', 'locale', 'comment', 'formatting'
+                  ];
+
+                  const newbieCategories = [
+                    'documentation', 'i18n', 'accessibility', 'frontend', 'ux'
+                  ];
+
+                  // Check if it's a small, focused change
+                  const isSmallChange = fullText.includes('one or two files') ||
+                                       fullText.includes('single file') ||
+                                       fullText.includes('small') ||
+                                       fullText.includes('minor') ||
+                                       fullText.includes('simple');
+
+                  const isNewbie = newbieKeywords.some(keyword => fullText.includes(keyword)) ||
+                                  newbieCategories.some(category => title.includes(category) && 
+                                    (fullText.includes('small') || fullText.includes('minor') || fullText.includes('simple'))) ||
+                                  isSmallChange;
+
+                  if (isNewbie) {
+                    assignedLabel = 'newbie';
+                  } else {
+                    // Default to 'adventure' for medium complexity or uncertain cases
+                    assignedLabel = 'adventure';
+                  }
+                }
+              }
+
+              // Verify the assigned label exists in the repository
+              if (!existingLabels.has(assignedLabel)) {
+                issuesSkippedMissingLabel++;
+                missingLabelIssues.push({
+                  number: issueNumber,
+                  title: issue.title,
+                  missingLabel: assignedLabel
+                });
+                continue;
+              }
+
+              // Add the label to the issue
+              try {
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  labels: [assignedLabel]
+                });
+                issuesClassified++;
+                labelCounts[assignedLabel]++;
+              } catch (error) {
+                console.error(`Error adding label to issue #${issueNumber}:`, error.message);
+                issuesSkipped++;
+              }
+            }
+
+            // Generate summary
+            const summary = `
+            ## Issue Difficulty Classification Summary
+            
+            - **Total Issues Scanned:** ${totalIssues}
+            - **Issues Classified:** ${issuesClassified}
+            - **Issues Skipped (already labeled):** ${issuesSkipped}
+            - **Issues Skipped (missing label):** ${issuesSkippedMissingLabel}
+            
+            ### Labels Applied
+            
+            - **newbie:** ${labelCounts.newbie}
+            - **adventure:** ${labelCounts.adventure}
+            - **veteran:** ${labelCounts.veteran}
+            - **question:** ${labelCounts.question}
+            
+            ${missingLabelIssues.length > 0 ? `
+            ### Issues Skipped Due to Missing Labels
+            
+            The following difficulty labels do not exist in the repository:
+            
+            ${missingLabelIssues.map(item => `- Issue #${item.number}: "${item.title}" (missing: \`${item.missingLabel}\`)`).join('\n')}
+            ` : ''}
+            `;
+
+            // Add summary to GitHub Actions
+            core.summary
+              .addRaw(summary)
+              .addTable([
+                [{ data: 'Metric', header: true }, { data: 'Count', header: true }],
+                ['Total Issues Scanned', totalIssues.toString()],
+                ['Issues Classified', issuesClassified.toString()],
+                ['Issues Skipped (already labeled)', issuesSkipped.toString()],
+                ['Issues Skipped (missing label)', issuesSkippedMissingLabel.toString()],
+                ['newbie labels applied', labelCounts.newbie.toString()],
+                ['adventure labels applied', labelCounts.adventure.toString()],
+                ['veteran labels applied', labelCounts.veteran.toString()],
+                ['question labels applied', labelCounts.question.toString()]
+              ])
+              .write();
+
+            console.log('Classification complete');
+            console.log(`Total issues: ${totalIssues}`);
+            console.log(`Classified: ${issuesClassified}`);
+            console.log(`Skipped: ${issuesSkipped}`);
+            console.log(`Skipped (missing label): ${issuesSkippedMissingLabel}`);
