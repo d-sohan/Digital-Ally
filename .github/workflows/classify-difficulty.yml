@@ -1,0 +1,273 @@
+name: Classify Issues by Difficulty
+
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  classify-difficulty:
+    name: Classify open issues by difficulty
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Classify issues by difficulty
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Difficulty labels with their configurations
+            const difficultyLabels = {
+              newbie: { color: '7057FF', description: 'Good for newcomers and beginners' },
+              adventure: { color: 'FF8C00', description: 'Medium complexity tasks' },
+              veteran: { color: 'B60205', description: 'Requires advanced knowledge and experience' },
+              question: { color: 'D876E3', description: 'Questions, help requests, and discussions' }
+            };
+            
+            // Statistics
+            let totalItems = 0;
+            let totalIssues = 0;
+            let pullRequestsIgnored = 0;
+            let issuesClassified = 0;
+            let issuesSkipped = 0;
+            let labelsCreated = 0;
+            let processingErrors = 0;
+            const labelCounts = {
+              newbie: 0,
+              adventure: 0,
+              veteran: 0,
+              question: 0
+            };
+            const createdLabels = [];
+            const errorLog = [];
+
+            // Check which difficulty labels exist in the repository
+            const existingLabels = new Set();
+            try {
+              const { data: labels } = await github.rest.issues.listLabelsForRepo({
+                owner,
+                repo,
+                per_page: 100
+              });
+              labels.forEach(label => existingLabels.add(label.name));
+            } catch (error) {
+              console.error('Error fetching repository labels:', error.message);
+            }
+
+            // Ensure all difficulty labels exist, create if missing
+            for (const [labelName, config] of Object.entries(difficultyLabels)) {
+              if (!existingLabels.has(labelName)) {
+                try {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: labelName,
+                    color: config.color,
+                    description: config.description
+                  });
+                  existingLabels.add(labelName);
+                  labelsCreated++;
+                  createdLabels.push(labelName);
+                  console.log(`Created repository label: ${labelName}`);
+                } catch (error) {
+                  console.error(`Error creating label ${labelName}:`, error.message);
+                  errorLog.push(`Failed to create label: ${labelName}`);
+                }
+              }
+            }
+
+            // Fetch all open issues with pagination
+            const issues = [];
+            for await (const response of github.paginate.iterator(
+                github.rest.issues.listForRepo,
+                { owner, repo, state: 'open', per_page: 100 }
+              )) {
+              totalItems += response.data.length;
+              // Filter out pull requests
+              const filteredIssues = response.data.filter(issue => !issue.pull_request);
+              const prCount = response.data.length - filteredIssues.length;
+              pullRequestsIgnored += prCount;
+              issues.push(...filteredIssues);
+            }
+
+            totalIssues = issues.length;
+
+            // Classify each issue
+            for (const issue of issues) {
+              const issueNumber = issue.number;
+              const title = issue.title.toLowerCase();
+              const body = (issue.body || '').toLowerCase();
+              const fullText = `${title}\n${body}`;
+              
+              // Get existing labels
+              const existingIssueLabels = new Set(issue.labels.map(label => label.name));
+
+              // Check if a difficulty label already exists
+              const existingDifficultyLabel = Object.keys(difficultyLabels).find(label => existingIssueLabels.has(label));
+
+              if (existingDifficultyLabel) {
+                console.log(`Issue #${issueNumber}`);
+                console.log(`Already classified with: ${existingDifficultyLabel}`);
+                issuesSkipped++;
+                continue;
+              }
+
+              // Determine difficulty based on classification rules
+              let assignedLabel = null;
+
+              // Check for 'question' first (non-implementation work)
+              const questionKeywords = [
+                'question', 'help', 'support', 'clarification', 'clarify',
+                'how do', 'how to', 'usage', 'discussion', 'ask', 'confused',
+                'understand', 'explain', 'guide', 'tutorial', 'example'
+              ];
+              
+              if (questionKeywords.some(keyword => fullText.includes(keyword))) {
+                assignedLabel = 'question';
+              } else {
+                // Check for 'veteran' (high complexity)
+                const veteranKeywords = [
+                  'security', 'authentication', 'authorization', 'performance',
+                  'optimization', 'infrastructure', 'ci/cd', 'cicd', 'architecture',
+                  'refactor', 'large refactoring', 'core framework', 'advanced',
+                  'debugging', 'complex', 'multi-module', 'scalability', 'monitoring',
+                  'deployment', 'docker', 'kubernetes', 'aws', 'cloud', 'migration',
+                  'database migration', 'schema', 'distributed', 'microservices'
+                ];
+
+                const veteranCategories = [
+                  'security', 'architecture', 'performance', 'monitoring', 'devops',
+                  'infrastructure', 'ci/cd', 'database'
+                ];
+
+                const isVeteran = veteranKeywords.some(keyword => fullText.includes(keyword)) ||
+                                 veteranCategories.some(category => title.includes(category));
+
+                if (isVeteran) {
+                  assignedLabel = 'veteran';
+                } else {
+                  // Check for 'newbie' (beginner-friendly)
+                  const newbieKeywords = [
+                    'documentation', 'readme', 'typo', 'spelling', 'grammar',
+                    'small ui', 'minor css', 'simple', 'good first issue',
+                    'beginner', 'starter', 'easy', 'first-timers', 'introductory',
+                    'translation', 'i18n', 'locale', 'comment', 'formatting'
+                  ];
+
+                  const newbieCategories = [
+                    'documentation', 'i18n', 'accessibility', 'frontend', 'ux'
+                  ];
+
+                  // Check if it's a small, focused change
+                  const isSmallChange = fullText.includes('one or two files') ||
+                                       fullText.includes('single file') ||
+                                       fullText.includes('small') ||
+                                       fullText.includes('minor') ||
+                                       fullText.includes('simple');
+
+                  const isNewbie = newbieKeywords.some(keyword => fullText.includes(keyword)) ||
+                                  newbieCategories.some(category => title.includes(category) && 
+                                    (fullText.includes('small') || fullText.includes('minor') || fullText.includes('simple'))) ||
+                                  isSmallChange;
+
+                  if (isNewbie) {
+                    assignedLabel = 'newbie';
+                  } else {
+                    // Default to 'adventure' for medium complexity or uncertain cases
+                    assignedLabel = 'adventure';
+                  }
+                }
+              }
+
+              // Add the label to the issue
+              try {
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  labels: [assignedLabel]
+                });
+                issuesClassified++;
+                labelCounts[assignedLabel]++;
+                
+                const existingLabelsList = Array.from(existingIssueLabels).join(', ') || 'none';
+                console.log(`Issue #${issueNumber}`);
+                console.log(`Classification: ${assignedLabel}`);
+                console.log(`Existing Labels: ${existingLabelsList}`);
+                console.log(`Applied: ${assignedLabel}`);
+                console.log('---');
+              } catch (error) {
+                console.error(`Error adding label to issue #${issueNumber}:`, error.message);
+                processingErrors++;
+                errorLog.push(`Issue #${issueNumber}: ${error.message}`);
+                // Continue processing other issues
+              }
+            }
+
+            // Generate summary
+            const summary = `
+            ## Issue Difficulty Classification Summary
+            
+            - **Total Items Scanned:** ${totalItems}
+            - **Total Issues Scanned:** ${totalIssues}
+            - **Pull Requests Ignored:** ${pullRequestsIgnored}
+            - **Issues Already Classified:** ${issuesSkipped}
+            - **Newly Classified Issues:** ${issuesClassified}
+            - **Labels Auto-Created:** ${labelsCreated}
+            - **Processing Errors:** ${processingErrors}
+            
+            ### Labels Applied
+            
+            - **newbie:** ${labelCounts.newbie}
+            - **adventure:** ${labelCounts.adventure}
+            - **veteran:** ${labelCounts.veteran}
+            - **question:** ${labelCounts.question}
+            
+            ${createdLabels.length > 0 ? `
+            ### Labels Auto-Created
+            
+            The following labels were automatically created:
+            
+            ${createdLabels.map(label => `- \`${label}\``).join('\n')}
+            ` : ''}
+            
+            ${errorLog.length > 0 ? `
+            ### Processing Errors
+            
+            The following errors occurred during processing:
+            
+            ${errorLog.map(error => `- ${error}`).join('\n')}
+            ` : ''}
+            `;
+
+            // Add summary to GitHub Actions
+            core.summary
+              .addRaw(summary)
+              .addTable([
+                [{ data: 'Metric', header: true }, { data: 'Count', header: true }],
+                ['Total Items Scanned', totalItems.toString()],
+                ['Total Issues Scanned', totalIssues.toString()],
+                ['Pull Requests Ignored', pullRequestsIgnored.toString()],
+                ['Issues Already Classified', issuesSkipped.toString()],
+                ['Newly Classified Issues', issuesClassified.toString()],
+                ['Labels Auto-Created', labelsCreated.toString()],
+                ['Processing Errors', processingErrors.toString()],
+                ['', ''],
+                ['newbie labels applied', labelCounts.newbie.toString()],
+                ['adventure labels applied', labelCounts.adventure.toString()],
+                ['veteran labels applied', labelCounts.veteran.toString()],
+                ['question labels applied', labelCounts.question.toString()]
+              ])
+              .write();
+
+            console.log('Classification complete');
+            console.log(`Total items: ${totalItems}`);
+            console.log(`Total issues: ${totalIssues}`);
+            console.log(`Pull requests ignored: ${pullRequestsIgnored}`);
+            console.log(`Classified: ${issuesClassified}`);
+            console.log(`Skipped (already labeled): ${issuesSkipped}`);
+            console.log(`Labels created: ${labelsCreated}`);
+            console.log(`Processing errors: ${processingErrors}`);

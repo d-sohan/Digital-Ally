@@ -228,6 +228,7 @@ or stop the process using the port.
 
 ---
 
+[![Classify Issues by Difficulty](https://github.com/vallabhatech/Digital-Ally/actions/workflows/classify-difficulty.yml/badge.svg)](https://github.com/vallabhatech/Digital-Ally/actions/workflows/classify-difficulty.yml)
 
 ## 🤝 Contributing
 
