@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "npm run check:translations && vite build",
     "check:translations": "node scripts/check-translations.mjs",
+    "lint:structure": "node scripts/check-structure.mjs",
+    "lint:architecture": "node scripts/check-structure.mjs",
     "preview": "vite preview",
     "start:server": "node server/index.js"
   },
@@ -25,6 +27,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

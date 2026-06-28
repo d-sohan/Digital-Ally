@@ -1,11 +1,11 @@
 import React, { useContext } from 'react';
-import { AppProvider, AppContext } from './context/AppContext';
-import { Header } from './components/Header';
-import { HomePage } from './pages/HomePage';
-import { ResultPage } from './pages/ResultPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { LoadingSpinner } from './components/LoadingSpinner';
-import { PrivacyModal } from './components/PrivacyModal';
+import { AppProvider, AppContext } from '@/app/context/AppContext';
+import { Header } from '@/components/Header';
+import { HomePage } from '@/pages/HomePage';
+import { ResultPage } from '@/pages/ResultPage';
+import { DashboardPage } from '@/pages/DashboardPage';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { PrivacyModal } from '@/components/PrivacyModal';
 
 const AppContent: React.FC = () => {
   const context = useContext(AppContext);
@@ -21,7 +21,7 @@ const AppContent: React.FC = () => {
         {pageState === 'loading' && (
           <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-lime-800">
             <LoadingSpinner className="w-12 h-12" />
-            <p className="text-lg font-semibold">Creating your content…</p>
+            <p className="text-lg font-semibold">Creating your content...</p>
           </div>
         )}
         {pageState === 'result' && <ResultPage />}

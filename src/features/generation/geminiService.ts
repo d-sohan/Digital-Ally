@@ -1,5 +1,5 @@
-import { PROMPT_TEMPLATE, NEWSLETTER_PROMPT_TEMPLATE, DASHBOARD_ANALYSIS_PROMPT_TEMPLATE, LANGUAGES } from '../constants';
-import { CONSENT_VERSION, loadPrivacyPreference } from '../privacy';
+import { PROMPT_TEMPLATE, NEWSLETTER_PROMPT_TEMPLATE, DASHBOARD_ANALYSIS_PROMPT_TEMPLATE, LANGUAGES } from '@/shared/constants';
+import { CONSENT_VERSION, loadPrivacyPreference } from '@/shared/privacy';
 
 interface WebsiteParams {
     description: string;

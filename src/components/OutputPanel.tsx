@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useContext, useMemo } from 'react';
-import { sanitizePreviewHtml } from '../utils/sanitize';
-import { AppContext } from '../context/AppContext';
-import { useSpeechToText } from '../hooks/useSpeechToText';
+import { sanitizePreviewHtml } from '@/utils/sanitize';
+import { AppContext } from '@/app/context/AppContext';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { 
     CheckIcon, CopyIcon, DownloadIcon, ArrowPathIcon, EyeIcon, CodeIcon, 
     MicrophoneIcon 
-} from './icons';
-import { LoadingSpinner } from './LoadingSpinner';
+} from '@/components/IconSet';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 export const OutputPanel: React.FC = () => {
     const context = useContext(AppContext);

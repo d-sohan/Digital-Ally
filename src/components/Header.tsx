@@ -1,7 +1,7 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
-import { AppContext } from '../context/AppContext';
-import { DigitalAllyLogoIcon, GlobeIcon, SparklesIcon } from './icons';
-import { LANGUAGES, EXAMPLE_PROMPTS } from '../constants';
+import { AppContext } from '@/app/context/AppContext';
+import { DigitalAllyLogoIcon, GlobeIcon, SparklesIcon } from '@/components/IconSet';
+import { LANGUAGES, EXAMPLE_PROMPTS } from '@/shared/constants';
 
 export const Header: React.FC = () => {
   const context = useContext(AppContext);
