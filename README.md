@@ -100,6 +100,8 @@ http://localhost:5174
 | npm run dev | Start Vite development server |
 | npm run build | Validate translations and create production build |
 | npm run check:translations | Verify translation coverage |
+| npm run lint:structure | Verify the expected folder layout and file locations |
+| npm run lint:architecture | Alias for the structure and naming check |
 | npm run preview | Preview production build locally |
 | npm run start:server | Start Express AI proxy server |
 
@@ -126,21 +128,29 @@ digital-ally/
 │   └── ...
 │
 ├── src/
+│   ├── app/
+│   │   ├── App.tsx
+│   │   ├── context/
+│   │   │   └── AppContext.tsx
+│   │   └── styles.css
 │   ├── components/
-│   ├── context/
+│   │   └── IconSet.tsx
 │   ├── hooks/
 │   ├── pages/
-│   ├── services/
-│   ├── App.tsx
-│   ├── constants.ts
-│   └── types.ts
+│   ├── features/
+│   │   └── generation/
+│   │       └── geminiService.ts
+│   └── shared/
+│       ├── constants.ts
+│       ├── privacy.ts
+│       └── types.ts
 │
 ├── .env.example
 ├── package.json
 ├── vite.config.ts
 ├── tsconfig.json
 ├── README.md
-└── index.tsx
+└── src/main.tsx
 ```
 
 ## 🧩 Architectural diagram
@@ -246,3 +256,14 @@ Please review the security policy for reporting vulnerabilities:
 ## 📄 License
 
 This project is licensed under the MIT License.
+
+## Organization Notes
+
+- `src/app` contains the application shell and context providers.
+- `src/features` contains feature-specific services and workflows.
+- `src/shared` contains cross-cutting constants, types, and privacy helpers.
+- React components use `PascalCase`.
+- Shared utilities and services use `camelCase`.
+- Shared barrel modules may use descriptive names like `IconSet.tsx` when they re-export a group of helpers.
+- The Vite entrypoint is [`src/main.tsx`](/src/main.tsx).
+- The `@/` alias points at `src/` for cleaner imports.

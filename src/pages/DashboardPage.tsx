@@ -1,13 +1,13 @@
 import React, { useState, useContext } from 'react';
-import { AppContext } from '../context/AppContext';
-import { useTextToSpeech } from '../hooks/useTextToSpeech';
-import { analyzeAndTranslateDashboard } from '../services/geminiService';
-import { LoadingSpinner } from '../components/LoadingSpinner';
+import { AppContext } from '@/app/context/AppContext';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { analyzeAndTranslateDashboard } from '@/features/generation/geminiService';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { 
     UserGroupIcon, CalendarDaysIcon, ChatBubbleOvalLeftEllipsisIcon,
     DocumentChartBarIcon, BuildingStorefrontIcon, SparklesIcon, ArrowRightIcon,
     PlusCircleIcon, StopCircleIcon, SpeakerWaveIcon, CodeIcon
-} from '../components/icons';
+} from '@/components/IconSet';
 
 const DashboardCard: React.FC<{ title: string, icon: React.ReactNode, children: React.ReactNode }> = ({ title, icon, children }) => (
   <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 flex flex-col hover:shadow-lime-100 hover:-translate-y-1 transition-all duration-300">

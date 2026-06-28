@@ -1,8 +1,8 @@
 import React, { useState, useCallback, createContext } from 'react';
-import { generateWebsite, generateNewsletter } from '../services/geminiService';
-import { LANGUAGES, TRANSLATIONS, COLOR_PALETTES } from '../constants';
-import { AppContextType } from '../types';
-import { AiProcessingMode, clearPrivacyPreference, loadPrivacyPreference, savePrivacyPreference } from '../privacy';
+import { generateWebsite, generateNewsletter } from '@/features/generation/geminiService';
+import { LANGUAGES, TRANSLATIONS, COLOR_PALETTES } from '@/shared/constants';
+import { AppContextType } from '@/shared/types';
+import { AiProcessingMode, clearPrivacyPreference, loadPrivacyPreference, savePrivacyPreference } from '@/shared/privacy';
 
 export const AppContext = createContext<AppContextType | null>(null);
 

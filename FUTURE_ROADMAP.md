@@ -33,7 +33,7 @@
 
 **Styling & UI:**
 - **Tailwind CSS** - Utility-first CSS framework (loaded via CDN for generated websites)
-- **Inline Styling** - React inline styles for the application interface
+- **App Shell CSS** - Global application styling lives in `src/app/styles.css`
 - **Responsive Design** - Mobile-first approach with breakpoint-aware layouts
 
 **Browser APIs:**
@@ -150,14 +150,14 @@ Modification Request → Modification Prompt State → handleAssist() → Gemini
 
 ### Core Module Responsibilities
 
-**AppContext (`src/context/AppContext.tsx`)**
+**AppContext (`src/app/context/AppContext.tsx`)**
 - Centralized state management for entire application
 - Handles form data, generation state, error handling
 - Manages retry logic with maximum 3 attempts
 - Provides translation function `t()` for i18n
 - Coordinates between components and services
 
-**Gemini Service (`src/services/geminiService.ts`)**
+**Gemini Service (`src/features/generation/geminiService.ts`)**
 - Abstracts Google Gemini API interactions
 - Implements three main functions:
   - `generateWebsite()` - Creates HTML websites
@@ -191,9 +191,8 @@ Digital-Ally/
 ├── .env                                    # Environment variables (Gemini API Key)
 ├── .git/                                   # Git version control
 ├── .gitignore                              # Git ignore rules
-├── index.css                               # Global CSS styles
 ├── index.html                              # HTML entry point
-├── index.tsx                               # React application entry point
+├── src/main.tsx                            # React application entry point
 ├── metadata.json                           # Project metadata
 ├── package-lock.json                       # Dependency lock file
 ├── package.json                            # Project dependencies and scripts
@@ -209,10 +208,7 @@ Digital-Ally/
     │   ├── InputPanel.tsx                  # Multi-step input form
     │   ├── LoadingSpinner.tsx              # Loading indicator
     │   ├── OutputPanel.tsx                 # Preview and code display
-    │   └── icons.tsx                       # SVG icon components
-    │
-    ├── context/                            # React Context providers
-    │   └── AppContext.tsx                  # Global state management
+    │   └── IconSet.tsx                     # SVG icon components
     │
     ├── hooks/                              # Custom React hooks
     │   ├── useSpeechToText.ts              # Speech recognition hook
@@ -223,12 +219,20 @@ Digital-Ally/
     │   ├── HomePage.tsx                    # Home page with input form
     │   └── ResultPage.tsx                  # Result display page
     │
-    ├── services/                           # API and business logic
-    │   └── geminiService.ts                # Google Gemini API integration
+    ├── features/                           # API and business logic
+    │   └── generation/
+    │       └── geminiService.ts            # Google Gemini API integration
     │
-    ├── constants.ts                        # Application constants
-    │                                       # (languages, color palettes, translations, prompts)
-    └── types.ts                            # TypeScript type definitions
+    ├── shared/                             # Shared constants, privacy helpers, and types
+    │   ├── constants.ts
+    │   ├── privacy.ts
+    │   └── types.ts
+    │
+    └── app/                                # Application shell and context
+        ├── App.tsx
+        ├── context/
+        │   └── AppContext.tsx
+        └── styles.css
 ```
 
 ### Directory/File Descriptions
@@ -239,7 +243,7 @@ Digital-Ally/
 - `tsconfig.json` - TypeScript compiler configuration with ES2022 target
 - `vite.config.ts` - Vite build tool configuration with path aliases
 - `index.html` - HTML template with root div for React mounting
-- `index.tsx` - React application entry point with StrictMode
+- `src/main.tsx` - React application entry point with StrictMode
 
 **Source Directory (`src/`):**
 
@@ -249,9 +253,9 @@ Digital-Ally/
 - `InputPanel.tsx` - Progressive disclosure form with 4 steps: Business Details, Description, Services, and Style
 - `LoadingSpinner.tsx` - SVG-based spinning loader for async operations
 - `OutputPanel.tsx` - Split-view panel with live preview, code view, modification assistant, and export options
-- `icons.tsx` - Collection of functional SVG icon components (Microphone, Sparkles, Check, Copy, etc.)
+- `IconSet.tsx` - Collection of functional SVG icon components (Microphone, Sparkles, Check, Copy, etc.)
 
-**`context/`** - State management
+**`app/context/`** - State management
 - `AppContext.tsx` - Context provider managing global state including form data, generation status, errors, language, and retry logic
 
 **`hooks/`** - Custom React hooks
@@ -263,12 +267,12 @@ Digital-Ally/
 - `ResultPage.tsx` - Renders OutputPanel for displaying generated websites
 - `DashboardPage.tsx` - Displays mock analytics dashboard with AI analysis feature
 
-**`services/`** - External API integrations
+**`features/generation/`** - External API integrations
 - `geminiService.ts` - Google Gemini API client with three main functions for website generation, newsletter creation, and dashboard analysis
 
 **Configuration Files:**
-- `constants.ts` - Centralized constants including language definitions, color palettes, translations (English, Telugu, Hindi), example prompts, and AI prompt templates
-- `types.ts` - TypeScript interfaces for AppContext, OutputView enum, and other type definitions
+- `shared/constants.ts` - Centralized constants including language definitions, color palettes, translations (English, Telugu, Hindi), example prompts, and AI prompt templates
+- `shared/types.ts` - TypeScript interfaces for AppContext, OutputView enum, and other type definitions
 
 ---
 

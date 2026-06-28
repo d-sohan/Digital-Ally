@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const rootDirectory = process.cwd();
 const sourceDirectory = path.join(rootDirectory, 'src');
-const constantsPath = path.join(sourceDirectory, 'constants.ts');
+const constantsPath = path.join(sourceDirectory, 'shared', 'constants.ts');
 
 const parseFile = (filePath) => ts.createSourceFile(
   filePath,

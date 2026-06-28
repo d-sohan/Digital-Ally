@@ -1,5 +1,5 @@
 import React from 'react';
-import { AiProcessingMode } from '../privacy';
+import { AiProcessingMode } from '@/shared/privacy';
 
 interface PrivacyModalProps {
   onChoose: (mode: AiProcessingMode) => void;

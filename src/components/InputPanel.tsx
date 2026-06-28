@@ -1,8 +1,8 @@
 import React, { useState, useContext } from 'react';
-import { AppContext } from '../context/AppContext';
-import { useSpeechToText } from '../hooks/useSpeechToText';
-import { COLOR_PALETTES } from '../constants';
-import { CheckIcon, MicrophoneIcon, SparklesIcon } from './icons';
+import { AppContext } from '@/app/context/AppContext';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
+import { COLOR_PALETTES } from '@/shared/constants';
+import { CheckIcon, MicrophoneIcon, SparklesIcon } from '@/components/IconSet';
 
 export const InputPanel: React.FC = () => {
     const context = useContext(AppContext);
